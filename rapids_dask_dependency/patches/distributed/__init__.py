@@ -1,6 +1,5 @@
 # Copyright (c) 2024, NVIDIA CORPORATION.
 
-from rapids_dask_dependency.importer import MonkeyPatchImporter
+from .add_patch_attr import add_patch_attr
 
-_importer = MonkeyPatchImporter(__name__, lambda _: None)
-load_module = _importer.load_module
+patches = [add_patch_attr]
