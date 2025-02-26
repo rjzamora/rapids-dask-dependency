@@ -51,6 +51,29 @@ pre_existing_cuda_context = False
 cuda_context_created = False
 
 
+def nbytes_cuda(f):
+    if hasattr(f, "__cuda_array_interface__"):
+        interface = f.__cuda_array_interface__
+
+        # Get total number of elements from shape
+        shape = interface['shape']
+        num_elements = 1
+        for dim in shape:
+            num_elements *= dim
+
+        # Get element size from typestr
+        # typestr format is like '<f4' for 32-bit float
+        typestr = interface['typestr']
+        element_size = int(typestr[2:])  # Extract the number after the type code
+
+        # Calculate total size in bytes
+        total_bytes = num_elements * element_size
+
+        return total_bytes
+    else:
+        return nbytes(f)
+
+
 _warning_suffix = (
     "This is often the result of a CUDA-enabled library calling a CUDA runtime function before "
     "Dask-CUDA can spawn worker processes. Please make sure any such function calls don't happen "
@@ -303,12 +326,12 @@ class UCX(Comm):
         )
         nframes = len(frames)
         cuda_frames = tuple(hasattr(f, "__cuda_array_interface__") for f in frames)
-        sizes = tuple(nbytes(f) for f in frames)
+        sizes = tuple(nbytes_cuda(f) for f in frames)
         cuda_send_frames, send_frames = zip(
             *(
                 (is_cuda, each_frame)
                 for is_cuda, each_frame in zip(cuda_frames, frames)
-                if nbytes(each_frame) > 0
+                if nbytes_cuda(each_frame) > 0
             )
         )
 
@@ -381,7 +404,7 @@ class UCX(Comm):
                 *(
                     (is_cuda, each_frame)
                     for is_cuda, each_frame in zip(cuda_frames, frames)
-                    if nbytes(each_frame) > 0
+                    if nbytes_cuda(each_frame) > 0
                 )
             )
 
